@@ -95,7 +95,7 @@ namespace ClienteApp.Helpers
             string rutaCompletaMsi = Path.Combine(@"\\server-nube\sistemas\Aplicaciones MSI", $"{nombreApp}");
             try
             {
-                using Process process = new Process();
+                using Process process = new();
                 process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
                 process.StartInfo.Arguments = $"/i \"{rutaCompletaMsi}\" /quiet"; ;
                 process.StartInfo.RedirectStandardOutput = true;
@@ -131,38 +131,40 @@ namespace ClienteApp.Helpers
         {
             if (string.IsNullOrEmpty(nombreApp))
             {
+                Console.WriteLine("El nombre de la aplicación no puede estar vacío.");
                 return;
             }
 
-            // Ruta completa del archivo .msi (asumiendo que el nombre de la aplicación incluye la extensión .msi)
-            string rutaCompletaMsi = Path.Combine(@"\\server-nube\sistemas\Aplicaciones MSI", $"{nombreApp}");
-
             try
             {
-                using Process process = new Process();
-                process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
-                process.StartInfo.Arguments = $"/x \"{rutaCompletaMsi}\" /quiet"; // Parámetro /x para desinstalar
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.UseShellExecute = false; // Para redirigir la salida
-                process.StartInfo.CreateNoWindow = true;   // No mostrar ventanas
-                process.StartInfo.Verb = "runas";         // Ejecutar como administrador
-
-                Console.WriteLine($"Desinstalando la aplicación {nombreApp} desde {rutaCompletaMsi}...");
-                process.Start();
-
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
-
-                process.WaitForExit();
-
-                if (!string.IsNullOrWhiteSpace(error))
+                using (Process process = new())
                 {
-                    Console.WriteLine($"Error al desinstalar la aplicación {nombreApp}: {error}");
-                }
-                else
-                {
-                    Console.WriteLine($"Aplicación {nombreApp} desinstalada correctamente.");
+                    string rutaAppMsi = $"\"{nombreApp}\""; // Asumiendo que tienes el nombre de la aplicación como .msi o similar
+
+                    process.StartInfo.FileName = "msiexec";
+                    process.StartInfo.Arguments = $"/x {rutaAppMsi} /quiet /norestart"; // El parámetro /x indica desinstalación
+                    process.StartInfo.RedirectStandardOutput = true;
+                    process.StartInfo.RedirectStandardError = true;
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.CreateNoWindow = true; // Evita abrir una ventana de msiexec
+                    process.StartInfo.Verb = "runas"; // Para ejecutar como administrador
+
+                    Console.WriteLine($"Desinstalando la aplicación {nombreApp}...");
+                    process.Start();
+
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+
+                    process.WaitForExit();
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        Console.WriteLine($"Error al desinstalar la aplicación {nombreApp}: {error}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Aplicación {nombreApp} desinstalada correctamente.");
+                    }
                 }
             }
             catch (Exception ex)

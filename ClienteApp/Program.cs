@@ -10,7 +10,6 @@ namespace ClienteApp
         {
             ArgumentNullException.ThrowIfNull(args);
             Console.WriteLine("Iniciando...");
-
             // temporizador para enviar vida
             await Liveness();
             //var timer = new System.Timers.Timer(60000); // 30 segundos en milisegundos
@@ -24,7 +23,6 @@ namespace ClienteApp
             //timer2.Elapsed += async (sender, e) => await Apps();
             //timer2.AutoReset = true; // Para que se repita cada 40 segundos
             //timer2.Enabled = true;
-
 
             Console.ReadLine();
         }

@@ -57,5 +57,21 @@ namespace ClienteApp.Helpers
             }
         }
 
+        public static string GetDirectorioDeApps()
+        {
+            string carpetaDestino = @"C:\AppsSistemas";
+            if (!Directory.Exists(carpetaDestino))
+            {
+                Directory.CreateDirectory(carpetaDestino);
+                Console.WriteLine($"Carpeta creada en: {carpetaDestino}");
+            }
+            else
+            {
+                Console.WriteLine($"La carpeta ya existe en: {carpetaDestino}");
+            }
+
+            return carpetaDestino;
+        }
+
     }
 }
