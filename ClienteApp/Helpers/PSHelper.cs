@@ -60,6 +60,7 @@ namespace ClienteApp.Helpers
                     existingData.apps != null && existingData.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version ))
                 {
                     install = false;
+                    Console.WriteLine($"La aplicación ya se encuentra en la data");
                 }
 
                 if (install)
