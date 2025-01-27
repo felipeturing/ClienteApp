@@ -12,13 +12,11 @@ namespace ClienteApp.Helpers
             process.StartInfo.Arguments = "-Command \"hostname\"";
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
-            process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
 
             try
             {
                 process.Start();
-
                 string nombreEquipo = process.StandardOutput.ReadToEnd().Trim(); // Eliminar espacios en blanco
                 string error = process.StandardError.ReadToEnd();
 
@@ -97,7 +95,7 @@ namespace ClienteApp.Helpers
             {
                 using Process process = new();
                 process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
-                process.StartInfo.Arguments = $"/i \"{rutaCompletaMsi}\" /quiet"; ;
+                process.StartInfo.Arguments = $"/i \"{rutaCompletaMsi}\" /quiet /norestart"; ;
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.UseShellExecute = false; // Para redirigir la salida
@@ -131,46 +129,70 @@ namespace ClienteApp.Helpers
         {
             if (string.IsNullOrEmpty(nombreApp))
             {
-                Console.WriteLine("El nombre de la aplicación no puede estar vacío.");
+                return;
+            }
+
+            // Buscar el ProductCode a partir del nombre de la aplicación
+            string productCode = ObtenerProductCodePorNombre(nombreApp);
+            if (string.IsNullOrEmpty(productCode))
+            {
+                Console.WriteLine($"No se encontró el ProductCode para {nombreApp}.");
                 return;
             }
 
             try
             {
-                using (Process process = new())
+                using Process process = new();
+                process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
+                process.StartInfo.Arguments = $"/x {productCode} /quiet /norestart"; // /x para desinstalar usando el ProductCode
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.UseShellExecute = false; // Para redirigir la salida
+                process.StartInfo.CreateNoWindow = true;   // No mostrar ventanas
+                process.StartInfo.Verb = "runas";         // Ejecutar como administrador
+
+                Console.WriteLine($"Desinstalando la aplicación {nombreApp}...");
+                process.Start();
+
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+
+                process.WaitForExit();
+
+                if (!string.IsNullOrWhiteSpace(error))
                 {
-                    string rutaAppMsi = $"\"{nombreApp}\""; // Asumiendo que tienes el nombre de la aplicación como .msi o similar
-
-                    process.StartInfo.FileName = "msiexec";
-                    process.StartInfo.Arguments = $"/x {rutaAppMsi} /quiet /norestart"; // El parámetro /x indica desinstalación
-                    process.StartInfo.RedirectStandardOutput = true;
-                    process.StartInfo.RedirectStandardError = true;
-                    process.StartInfo.UseShellExecute = false;
-                    process.StartInfo.CreateNoWindow = true; // Evita abrir una ventana de msiexec
-                    process.StartInfo.Verb = "runas"; // Para ejecutar como administrador
-
-                    Console.WriteLine($"Desinstalando la aplicación {nombreApp}...");
-                    process.Start();
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-
-                    process.WaitForExit();
-
-                    if (!string.IsNullOrWhiteSpace(error))
-                    {
-                        Console.WriteLine($"Error al desinstalar la aplicación {nombreApp}: {error}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Aplicación {nombreApp} desinstalada correctamente.");
-                    }
+                    Console.WriteLine($"Error al desinstalar la aplicación {nombreApp}: {error}");
+                }
+                else
+                {
+                    Console.WriteLine($"Aplicación {nombreApp} desinstalada correctamente.");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Excepción al desinstalar la aplicación {nombreApp}: {ex.Message}");
             }
+        }
+
+        // Función que obtiene el ProductCode usando el nombre de la aplicación
+        private static string? ObtenerProductCodePorNombre(string nombreApp)
+        {
+            // Aquí puedes buscar el ProductCode en el registro o usar wmic
+            // Ejemplo con wmic:
+            var process = new Process();
+            process.StartInfo.FileName = "wmic";
+            process.StartInfo.Arguments = $"product where \"name = '{nombreApp}'\" get IdentifyingNumber";
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            // Aquí deberías extraer el ProductCode del output
+            var productCode = output.Split('\n').Skip(1).FirstOrDefault()?.Trim();
+            return productCode;
         }
     }
 }

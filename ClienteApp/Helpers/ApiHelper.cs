@@ -7,21 +7,18 @@ namespace ClienteApp.Helpers
 {
     public static class ApiHelper
     {
+        private const string backendUrl = $"http://192.168.20.199:3004";
         public static async Task Liveness(string worker)
         {
             using var client = new HttpClient();
             try
             {
-                string apiUrl = "http://localhost:3002/certificados/test";
-                var body = new { host = worker };
-                string jsonBody = System.Text.Json.JsonSerializer.Serialize(body);
-                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-                var response = await client.PostAsync(apiUrl, content);
+                string apiUrl = $"{backendUrl}/workers/liveness/{worker}";
+                var response = await client.GetAsync(apiUrl);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    string responseBody = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine("liveness: " + responseBody);
+                    Console.WriteLine("Liveness: true");
                 }
                 else
                 {
@@ -40,7 +37,7 @@ namespace ClienteApp.Helpers
 
             try
             {
-                string apiUrl = $"http://localhost:3002/certificados/test/{worker}";
+                string apiUrl = $"{backendUrl}/workers/{worker}";
                 var response = await client.GetAsync(apiUrl);
 
                 if (response.IsSuccessStatusCode)
@@ -64,15 +61,29 @@ namespace ClienteApp.Helpers
 
         public class Data
         {
-            public string? host { get; set; }
-            public string? group { get; set; }
+            public Worker? worker { get; set; }
+            public Grupo? grupo { get; set; }
+        }
+
+        public class Grupo
+        {
+            public string? name { get; set; }
+            public string? description { get; set; }
             public App[]? apps { get; set; }
+        }
+
+        public class Worker
+        {
+            public string? name { get; set; }
+            public string? status { get; set; }
+            public string? statusApp { get; set; }
         }
 
         public class App
         {
             public string? name { get; set; }
             public string? version{ get; set; }
+            public string? path{ get; set; }
         }
 
     }
