@@ -5,7 +5,7 @@ namespace ClienteApp.Helpers
 {
     public static class PowerShellHelper
     {
-        public static string? getWorker()
+        public static string? GetWorker()
         {
             using Process process = new();
             process.StartInfo.FileName = "powershell.exe";
@@ -64,50 +64,11 @@ namespace ClienteApp.Helpers
 
                 if (install)
                 {
-                    Console.WriteLine($"La aplicación {app.name} no está instalada.");
                     InstalarAplicacion(app.name);
-                    //bool estaInstalada = VerificarAplicacionInstalada(app.name);
-                    //if (!estaInstalada)
-                    //{
-                    //}
                 }
             }
-            // Unistall
-        }
 
-        private static bool VerificarAplicacionInstalada(string nombreApp)
-        {
-            using Process process = new Process();
-            process.StartInfo.FileName = "powershell.exe";
-            process.StartInfo.Arguments = $"-Command \"Get-WmiObject -Class Win32_Product | Where-Object {{ $_.Name -eq '{nombreApp}' }}\"";
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.CreateNoWindow = true;
-
-            try
-            {
-                process.Start();
-
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
-
-                process.WaitForExit();
-
-                if (!string.IsNullOrWhiteSpace(error))
-                {
-                    Console.WriteLine($"Error al verificar la aplicación {nombreApp}: {error}");
-                    return false;
-                }
-
-                // Si hay salida, la aplicación está instalada
-                return !string.IsNullOrWhiteSpace(output);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Excepción al verificar la aplicación {nombreApp}: {ex.Message}");
-                return false;
-            }
+            // TODO: Unistall
         }
 
         private static void InstalarAplicacion(string? nombreApp)

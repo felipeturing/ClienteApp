@@ -33,7 +33,7 @@ namespace ClienteApp
         {
             try
             {
-                string worker = PowerShellHelper.getWorker();
+                string worker = PowerShellHelper.GetWorker();
                 if (!string.IsNullOrEmpty(worker))
                 {
                     var data = await ApiHelper.GetApps(worker);
@@ -63,7 +63,7 @@ namespace ClienteApp
         {
             try
             {
-                string worker = PowerShellHelper.getWorker();
+                string worker = PowerShellHelper.GetWorker();
                 if (!string.IsNullOrEmpty(worker))
                 {
                     await ApiHelper.Liveness(worker);
