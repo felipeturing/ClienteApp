@@ -37,7 +37,6 @@ namespace ClienteApp
                 if (!string.IsNullOrEmpty(worker))
                 {
                     var data = await ApiHelper.GetApps(worker);
-
                     if (data != null)
                     {
                         Console.WriteLine($"Consultando aplicaciones para el host: {data.host}");

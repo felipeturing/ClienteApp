@@ -50,17 +50,32 @@ namespace ClienteApp.Helpers
 
             ApiHelper.Data? existingData = await PersistenceHelper.Load<ApiHelper.Data>();
 
-            // Install
+            // Unistall Apps
+            foreach (ApiHelper.App app in existingData?.apps ?? [])
+            {
+                Console.WriteLine($"Procesando aplicación para desinstalación: {app.name} (Versión: {app.version})");
+                bool isDifferentGroup = existingData != null && existingData.group != data.group;
+                bool isAppNotInNewData = data.apps.All(newApp =>
+                    newApp.name != app.name ||
+                    (newApp.name == app.name && newApp.version != app.version));
+                
+                if (isDifferentGroup || isAppNotInNewData)
+                {
+                    DesinstalarAplicacion(app.name);
+                }
+            }
+
+            // Install Apps
             foreach (ApiHelper.App app in data.apps)
             {
-                Console.WriteLine($"Procesando aplicación: {app.name} (Versión: {app.version})");
+                Console.WriteLine($"Procesando aplicación para instalación: {app.name} (Versión: {app.version})");
                 bool install = true;
-                if (existingData != null && 
-                    existingData.group == data.group && 
-                    existingData.apps != null && existingData.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version ))
+                bool isAppAlreadyInstalled = existingData != null && existingData.group == data.group &&
+                                             existingData.apps != null && existingData.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version) == true;
+                if (isAppAlreadyInstalled)
                 {
                     install = false;
-                    Console.WriteLine($"La aplicación ya se encuentra en la data");
+                    Console.WriteLine($"La aplicación {app.name} ya se encuentra en la data.");
                 }
 
                 if (install)
@@ -68,8 +83,6 @@ namespace ClienteApp.Helpers
                     InstalarAplicacion(app.name);
                 }
             }
-
-            // TODO: Unistall
         }
 
         private static void InstalarAplicacion(string? nombreApp)
@@ -111,6 +124,50 @@ namespace ClienteApp.Helpers
             catch (Exception ex)
             {
                 Console.WriteLine($"Excepción al instalar la aplicación {nombreApp}: {ex.Message}");
+            }
+        }
+
+        private static void DesinstalarAplicacion(string? nombreApp)
+        {
+            if (string.IsNullOrEmpty(nombreApp))
+            {
+                return;
+            }
+
+            // Ruta completa del archivo .msi (asumiendo que el nombre de la aplicación incluye la extensión .msi)
+            string rutaCompletaMsi = Path.Combine(@"\\server-nube\sistemas\Aplicaciones MSI", $"{nombreApp}");
+
+            try
+            {
+                using Process process = new Process();
+                process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
+                process.StartInfo.Arguments = $"/x \"{rutaCompletaMsi}\" /quiet"; // Parámetro /x para desinstalar
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.UseShellExecute = false; // Para redirigir la salida
+                process.StartInfo.CreateNoWindow = true;   // No mostrar ventanas
+                process.StartInfo.Verb = "runas";         // Ejecutar como administrador
+
+                Console.WriteLine($"Desinstalando la aplicación {nombreApp} desde {rutaCompletaMsi}...");
+                process.Start();
+
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+
+                process.WaitForExit();
+
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    Console.WriteLine($"Error al desinstalar la aplicación {nombreApp}: {error}");
+                }
+                else
+                {
+                    Console.WriteLine($"Aplicación {nombreApp} desinstalada correctamente.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Excepción al desinstalar la aplicación {nombreApp}: {ex.Message}");
             }
         }
     }

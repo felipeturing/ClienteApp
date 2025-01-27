@@ -25,7 +25,7 @@ namespace ClienteApp.Helpers
                 string json = JsonSerializer.Serialize(data);
                 await File.WriteAllTextAsync(RutaPayloadActual, json);
                 Console.WriteLine("Payload actual guardado correctamente.");
-                Console.WriteLine($"Ruta del archivo actual: {RutaPayloadActual}");
+                Console.WriteLine($"Ruta de la data: {RutaPayloadActual}");
             }
             catch (Exception ex)
             {
