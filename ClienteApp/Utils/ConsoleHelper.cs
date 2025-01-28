@@ -12,7 +12,7 @@ namespace ClienteApp.Utils
         /// Muestra un mensaje en la consola con el color especificado.
         /// </summary>
         /// <param name="message">El mensaje a mostrar.</param>
-        /// <param name="color">El color del texto.</param>
+        /// <param name="color">El color del texto.</param> 
         public static void WriteColoredMessage(string message, ConsoleColor color)
         {
             Console.ForegroundColor = color;
