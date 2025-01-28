@@ -32,7 +32,7 @@ namespace ClienteApp
                     {
                         Console.WriteLine($"Consultando aplicaciones para el host: {data.worker?.name}");
                         await PowerShellHelper.ProcessApps(data);
-                        await PersistenceHelper.Save(data);
+                        //await PersistenceHelper.Save(data);
                     }
                 }
                 else

@@ -90,7 +90,8 @@ namespace ClienteApp.Helpers
                 return;
             }
 
-            string tempFilePath = Path.Combine(Path.GetTempPath(), Path.GetFileName(app.path));
+            string tempFilePath = Path.Combine(Path.GetTempPath(), "ClientApp", Path.GetFileName(app.path));
+            Console.WriteLine($"Carpeta temporal: {tempFilePath}");
 
             try
             {
