@@ -1,4 +1,9 @@
-﻿using System.Text.Json;
+﻿using System;
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using ClienteApp.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ClienteApp.Helpers
 {
@@ -8,7 +13,8 @@ namespace ClienteApp.Helpers
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ClienteApp"
         );
-        private static readonly string ruta = Path.Combine(BaseDirectory, "data.json");
+        private static readonly string dataRuta = Path.Combine(BaseDirectory, "data.json");
+        private static readonly string logRuta = Path.Combine(BaseDirectory, "clienteapp.log");
 
         static PersistenceHelper()
         {
@@ -23,13 +29,12 @@ namespace ClienteApp.Helpers
             try
             {
                 string json = JsonSerializer.Serialize(data);
-                await File.WriteAllTextAsync(ruta, json);
-                Console.WriteLine("Data guardada correctamente.");
-                Console.WriteLine($"Ruta de la data: {ruta}");
+                await File.WriteAllTextAsync(dataRuta, json);
+                await WriteLog($"ClienteApp.Helpers.PersistenceHelper.Save: Data guardada correctamente en {dataRuta} ", data?.worker?.name);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al guardar el payload actual: {ex.Message}");
+                await WriteLog($"ClienteApp.Helpers.PersistenceHelper.Save (Error): Error al guardar la data actual: {ex.Message}", data?.worker?.name);
             }
         }
 
@@ -37,40 +42,41 @@ namespace ClienteApp.Helpers
         {
             try
             {
-                if (File.Exists(ruta))
+                if (File.Exists(dataRuta))
                 {
-                    string json = await File.ReadAllTextAsync(ruta);
+                    string json = await File.ReadAllTextAsync(dataRuta);
                     Models.Data? data = JsonSerializer.Deserialize<Models.Data>(json);
-                    Console.WriteLine("Datos cargados correctamente.");
+                    await WriteLog($"ClienteApp.Helpers.PersistenceHelper.Load: Datos cargados correctamente");
                     return data;
                 }
                 else
                 {
-                    Console.WriteLine("El archivo data.json no existe.");
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al cargar los datos: {ex.Message}");
+                await WriteLog($"ClienteApp.Helpers.PersistenceHelper.Load (Error): Error al cargar la data actual: {ex.Message}");
                 return null;
             }
         }
 
-        public static string GetDirectorioDeApps()
+        /// <summary>
+        /// Escribe un mensaje de log en el archivo clienteapp.log con la fecha, hora, y el nombre del host.
+        /// </summary>
+        /// <param name="message">Mensaje del log.</param>
+        /// <param name="hostName">Nombre del host.</param>
+        public static async Task WriteLog(string message, string? worker = "worker")
         {
-            string carpetaDestino = @"C:\AppsSistemas";
-            if (!Directory.Exists(carpetaDestino))
+            try
             {
-                Directory.CreateDirectory(carpetaDestino);
-                Console.WriteLine($"Carpeta creada en: {carpetaDestino}");
+                string logMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | {worker ?? "worker"} | {message}{Environment.NewLine}";
+                await File.AppendAllTextAsync(logRuta, logMessage);
             }
-            else
-            {
-                Console.WriteLine($"La carpeta ya existe en: {carpetaDestino}");
+            catch (Exception)
+            {   
+                return;
             }
-
-            return carpetaDestino;
         }
 
     }

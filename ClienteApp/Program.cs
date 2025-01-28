@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using ClienteApp.Helpers;
+using ClienteApp.Models;
 
 namespace ClienteApp
 {
@@ -8,62 +9,45 @@ namespace ClienteApp
     {
         public static Timer? timerLiveness;
         public static Timer? timerRefreshApps;
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             ArgumentNullException.ThrowIfNull(args);
-            Console.WriteLine("Iniciando...");
-
+            
+            Utils.ConsoleHelper.WriteColoredMessage("ClienteApp.Program.Main: Iniciando...", ConsoleColor.Green);
+            await PersistenceHelper.WriteLog($"ClienteApp.Program.Main: Iniciando...");
+            
             timerLiveness = new Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
             timerRefreshApps = new Timer(async _ => await Apps(), null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
-
-            Console.ReadLine();
         }
         
         private static async Task Apps()
         {
-            try
+            string worker = await PowerShellHelper.GetWorker();
+            if (!string.IsNullOrEmpty(worker))
             {
-                string worker = PowerShellHelper.GetWorker();
-                if (!string.IsNullOrEmpty(worker))
+                Models.Data? data = await ApiHelper.GetApps(worker);
+                if (data != null)
                 {
-                    Models.Data? data = await ApiHelper.GetApps(worker);
-                    if (data != null)
-                    {
-                        Console.WriteLine($"Consultando aplicaciones para el host: {data.worker?.name}");
-                        await PowerShellHelper.ProcessApps(data);
-                        await PersistenceHelper.Save(data);
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("No se pudo obtener el nombre del equipo.");
+                    await PowerShellHelper.ProcessApps(data);
+                    await PersistenceHelper.Save(data);
                 }
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Program.Apps (Error): No se pudo obtener el nombre del worker");
             }
-
-
         }
 
         private static async Task Liveness()
         {
-            try
+            string worker = await PowerShellHelper.GetWorker();
+            if (!string.IsNullOrEmpty(worker))
             {
-                string worker = PowerShellHelper.GetWorker();
-                if (!string.IsNullOrEmpty(worker))
-                {
-                    await ApiHelper.Liveness(worker);
-                }
-                else
-                {
-                    Console.WriteLine("No se pudo obtener el nombre del equipo.");
-                }
+                await ApiHelper.Liveness(worker);
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Program.Liveness (Error): No se pudo obtener el nombre del worker");
             }
         }
     }

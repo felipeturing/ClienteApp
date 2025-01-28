@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using ClienteApp.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ClienteApp.Helpers
 {
     public static class PowerShellHelper
     {
-        public static string? GetWorker()
+        public static async Task<string?> GetWorker()
         {
             using Process process = new();
             process.StartInfo.FileName = "powershell.exe";
@@ -24,16 +26,16 @@ namespace ClienteApp.Helpers
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    Console.WriteLine("\nErrores al obtener el nombre del equipo:");
-                    Console.WriteLine(error);
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.GetWorker (Error): process.StandardError.ReadToEnd - {error}");
                     return null;
                 }
 
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.GetWorker: worker identificado {nombreEquipo}");
                 return nombreEquipo;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al ejecutar PowerShell: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.GetWorker (Error): Catch - {ex.Message}");
                 return null;
             }
         }
@@ -42,7 +44,7 @@ namespace ClienteApp.Helpers
         {
             if (data?.grupo?.apps == null || data.grupo.apps.Length == 0)
             {
-                Console.WriteLine("No hay aplicaciones para procesar.");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.ProcessApps: No hay aplicaciones para procesar.");
                 return;
             }
 
@@ -51,9 +53,7 @@ namespace ClienteApp.Helpers
             //Unistall Apps
             foreach (Models.App app in existingData?.grupo?.apps ?? [])
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Procesando aplicación para desinstalación: {app.name} (Versión: {app.version})");
-                Console.ResetColor();
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.ProcessApps: Procesando aplicación para desinstalación: {app.name} (Versión: {app.version})", data.worker?.name);
                 bool isDifferentGroup = existingData != null && existingData.grupo != null && existingData.grupo.name != data.grupo.name;
                 bool isAppNotInNewData = data.grupo.apps.All(newApp =>
                     newApp.name != app.name ||
@@ -68,26 +68,25 @@ namespace ClienteApp.Helpers
             // Install Apps
             foreach (Models.App app in data.grupo.apps)
             {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Procesando aplicación para instalación: {app.name} (Versión: {app.version})");
-                Console.ResetColor();
+                //Utils.ConsoleHelper.WriteColoredMessage($"Procesando aplicación para instalación: {app.name} (Versión: {app.version})", ConsoleColor.Green);
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.ProcessApps: Procesando aplicación para instalación: {app.name} (Versión: {app.version})", data.worker?.name);
                 bool install = true;
                 bool isAppAlreadyInstalled = existingData != null && existingData.grupo != null && existingData.grupo.name == data.grupo.name &&
                                              existingData.grupo.apps != null && existingData.grupo.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version) == true;
                 if (isAppAlreadyInstalled)
                 {
                     install = false;
-                    Console.WriteLine($"La aplicación {app.name} ya se encuentra en la data.");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.ProcessApps: La aplicación {app.name} ya se encuentra en la data.json (en teoría instalada).", data.worker?.name);
                 }
 
                 if (install)
                 {
-                    InstalarAplicacion(app);
+                    await InstalarAplicacion(app);
                 }
             }
         }
 
-        private static void InstalarAplicacion(Models.App app)
+        private static async Task InstalarAplicacion(Models.App app)
         {
             if (string.IsNullOrEmpty(app.name) || string.IsNullOrEmpty(app.version) || string.IsNullOrEmpty(app.path))
             {
@@ -105,12 +104,12 @@ namespace ClienteApp.Helpers
 
                 if (!File.Exists(tempFilePath))
                 {
-                    Console.WriteLine($"Archivo no encontrado en la carpeta temporal. Copiando...");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion: Archivo no encontrado en la carpeta temporal. Copiando hacia {tempFilePath}", app.name);
                     File.Copy(app.path, tempFilePath, true);
                 }
                 else
                 {
-                    Console.WriteLine($"Archivo encontrado en la carpeta temporal: {tempFilePath}");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion: Archivo encontrado en la carpeta temporal: {tempFilePath}", app.name);
                 }
 
                 using Process process = new();
@@ -122,7 +121,7 @@ namespace ClienteApp.Helpers
                 process.StartInfo.CreateNoWindow = true;   // No mostrar ventanas
                 process.StartInfo.Verb = "runas";         // Ejecutar como administrador
 
-                Console.WriteLine($"Instalando la aplicación {app.name}...");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion: Instalando la aplicación", app.name);
                 process.Start();
 
                 string output = process.StandardOutput.ReadToEnd();
@@ -132,20 +131,23 @@ namespace ClienteApp.Helpers
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    Console.WriteLine($"Error al instalar la aplicación {app.name}: {error}");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion (Error): process.StandardError.ReadToEnd - {error}", app.name);
+                    return;
                 }
                 else
                 {
-                    Console.WriteLine($"Aplicación {app.name} instalada correctamente.");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion: Aplicación {app.name} instalada correctamente.", app.name);
+                    return;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al instalar la aplicación {app.name}: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion (Error): Catch - {ex.Message}", app.name);
+                return;
             }
         }
 
-        private static void DesInstalarAplicacion(Models.App app)
+        private static async Task DesInstalarAplicacion(Models.App app)
         {
             if (string.IsNullOrEmpty(app.name) || string.IsNullOrEmpty(app.version) || string.IsNullOrEmpty(app.path))
             {
@@ -164,12 +166,12 @@ namespace ClienteApp.Helpers
 
                 if (!File.Exists(tempFilePath))
                 {
-                    Console.WriteLine($"Archivo no encontrado en la carpeta temporal. Copiando desde:");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion: Archivo no encontrado en la carpeta temporal. Copiando hacia {tempFilePath}", app.name);
                     File.Copy(app.path, tempFilePath, true);
                 }
                 else
                 {
-                    Console.WriteLine($"Archivo encontrado en la carpeta temporal: {tempFilePath}");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion: Archivo encontrado en la carpeta temporal: {tempFilePath}", app.name);
                 }
 
 
@@ -181,7 +183,7 @@ namespace ClienteApp.Helpers
                 process2.StartInfo.UseShellExecute = false; // Para redirigir la salida
                 process2.StartInfo.Verb = "runas";         // Ejecutar como administrador
 
-                Console.WriteLine($"Desinstalando la aplicación {app.name}...");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion: Desinstalando la aplicación", app.name);
                 process2.Start();
 
                 string output = process2.StandardOutput.ReadToEnd();
@@ -191,16 +193,19 @@ namespace ClienteApp.Helpers
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    Console.WriteLine($"Error al desinstalar la aplicación {app.name}: {error}");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion (Error): process.StandardError.ReadToEnd - {error}", app.name);
+                    return;
                 }
                 else
                 {
-                    Console.WriteLine($"Aplicación {app.name} desinstalada correctamente.");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion: Aplicación {app.name} desinstalada correctamente.", app.name);
+                    return;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al desinstalar la aplicación {app.name}: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion (Error): Catch - {ex.Message}", app.name);
+                return;
             }
         }
     }

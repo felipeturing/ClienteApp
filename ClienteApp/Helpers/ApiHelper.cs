@@ -18,16 +18,16 @@ namespace ClienteApp.Helpers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine("Liveness: true");
+                    await PersistenceHelper.WriteLog("ClienteApp.Helpers.ApiHelper.Liveness: true", worker);
                 }
                 else
                 {
-                    Console.WriteLine($"Error: Código de estado HTTP {response.StatusCode}");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.ApiHelper.Liveness (Error): Código de estado HTTP {response.StatusCode}", worker);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al enviar datos a la API: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.ApiHelper.Liveness (Error): Excepción al enviar datos a la API: {ex.Message}", worker);
             }
         }
 
@@ -44,17 +44,18 @@ namespace ClienteApp.Helpers
                 {
                     string responseBody = await response.Content.ReadAsStringAsync();
                     var data = System.Text.Json.JsonSerializer.Deserialize<Models.Data>(responseBody);
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.ApiHelper.GetApps: true {responseBody}", worker);
                     return data;
                 }
                 else
                 {
-                    Console.WriteLine($"Error: Código de estado HTTP {response.StatusCode}");
+                    await PersistenceHelper.WriteLog($"ClienteApp.Helpers.ApiHelper.GetApps (Error): Código de estado HTTP {response.StatusCode}", worker);
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al consultar aplicaciones en la API: {ex.Message}");
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.ApiHelper.GetApps (Error): Excepción al consultar aplicaciones en la API: {ex.Message}", worker);
                 return null;
             }
         }

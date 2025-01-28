@@ -32,4 +32,5 @@ namespace ClienteApp.Models
         public string? version { get; set; }
         public string? path { get; set; }
     }
+   
 }
