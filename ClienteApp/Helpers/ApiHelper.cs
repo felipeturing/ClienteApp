@@ -31,7 +31,7 @@ namespace ClienteApp.Helpers
             }
         }
 
-        public static async Task<Data?> GetApps(string worker)
+        public static async Task<Models.Data?> GetApps(string worker)
         {
             using var client = new HttpClient();
 
@@ -43,7 +43,7 @@ namespace ClienteApp.Helpers
                 if (response.IsSuccessStatusCode)
                 {
                     string responseBody = await response.Content.ReadAsStringAsync();
-                    var data = System.Text.Json.JsonSerializer.Deserialize<Data>(responseBody);
+                    var data = System.Text.Json.JsonSerializer.Deserialize<Models.Data>(responseBody);
                     return data;
                 }
                 else
@@ -57,33 +57,6 @@ namespace ClienteApp.Helpers
                 Console.WriteLine($"Excepción al consultar aplicaciones en la API: {ex.Message}");
                 return null;
             }
-        }
-
-        public class Data
-        {
-            public Worker? worker { get; set; }
-            public Grupo? grupo { get; set; }
-        }
-
-        public class Grupo
-        {
-            public string? name { get; set; }
-            public string? description { get; set; }
-            public App[]? apps { get; set; }
-        }
-
-        public class Worker
-        {
-            public string? name { get; set; }
-            public string? status { get; set; }
-            public string? statusApp { get; set; }
-        }
-
-        public class App
-        {
-            public string? name { get; set; }
-            public string? version{ get; set; }
-            public string? path{ get; set; }
         }
 
     }

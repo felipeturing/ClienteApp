@@ -12,23 +12,10 @@ namespace ClienteApp
         {
             ArgumentNullException.ThrowIfNull(args);
             Console.WriteLine("Iniciando...");
-            
-            // temporizador para enviar vida
-            //await Liveness();
-            timerLiveness = new Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
-            
-            
-            //var timer = new System.Timers.Timer(60000); // 30 segundos en milisegundos
-            //timer.Elapsed += async (sender, e) => await LivenessAsync();
-            //timer.AutoReset = true; // Para que se repita cada 30 segundos
-            //timer.Enabled = true;
 
-            // temporizador para actualizar apps
-            //await Apps();
-            //var timer2 = new System.Timers.Timer(60000); // 40 segundos en milisegundos
-            //timer2.Elapsed += async (sender, e) => await Apps();
-            //timer2.AutoReset = true; // Para que se repita cada 40 segundos
-            //timer2.Enabled = true;
+            timerLiveness = new Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromSeconds(120));
+            timerRefreshApps = new Timer(async _ => await Apps(), null, TimeSpan.Zero, TimeSpan.FromSeconds(8));
+
 
             Console.ReadLine();
         }
@@ -40,14 +27,13 @@ namespace ClienteApp
                 string worker = PowerShellHelper.GetWorker();
                 if (!string.IsNullOrEmpty(worker))
                 {
-                    var data = await ApiHelper.GetApps(worker);
+                    Models.Data? data = await ApiHelper.GetApps(worker);
                     if (data != null)
                     {
-                        Console.WriteLine($"Consultando aplicaciones para el host: {data.host}");
+                        Console.WriteLine($"Consultando aplicaciones para el host: {data.worker?.name}");
                         await PowerShellHelper.ProcessApps(data);
                         await PersistenceHelper.Save(data);
                     }
-
                 }
                 else
                 {

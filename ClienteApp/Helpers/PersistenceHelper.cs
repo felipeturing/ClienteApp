@@ -8,7 +8,7 @@ namespace ClienteApp.Helpers
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ClienteApp"
         );
-        private static readonly string RutaPayloadActual = Path.Combine(BaseDirectory, "data.json");
+        private static readonly string ruta = Path.Combine(BaseDirectory, "data.json");
 
         static PersistenceHelper()
         {
@@ -18,14 +18,14 @@ namespace ClienteApp.Helpers
             }
         }
 
-        public static async Task Save(object? data)
+        public static async Task Save(Models.Data? data)
         {
             try
             {
                 string json = JsonSerializer.Serialize(data);
-                await File.WriteAllTextAsync(RutaPayloadActual, json);
-                Console.WriteLine("Payload actual guardado correctamente.");
-                Console.WriteLine($"Ruta de la data: {RutaPayloadActual}");
+                await File.WriteAllTextAsync(ruta, json);
+                Console.WriteLine("Data guardada correctamente.");
+                Console.WriteLine($"Ruta de la data: {ruta}");
             }
             catch (Exception ex)
             {
@@ -33,14 +33,14 @@ namespace ClienteApp.Helpers
             }
         }
 
-        public static async Task<ApiHelper.Data?> Load<T>()
+        public static async Task<Models.Data?> Load<T>()
         {
             try
             {
-                if (File.Exists(RutaPayloadActual))
+                if (File.Exists(ruta))
                 {
-                    string json = await File.ReadAllTextAsync(RutaPayloadActual);
-                    ApiHelper.Data? data = JsonSerializer.Deserialize<ApiHelper.Data>(json);
+                    string json = await File.ReadAllTextAsync(ruta);
+                    Models.Data? data = JsonSerializer.Deserialize<Models.Data>(json);
                     Console.WriteLine("Datos cargados correctamente.");
                     return data;
                 }

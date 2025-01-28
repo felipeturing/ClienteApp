@@ -38,38 +38,38 @@ namespace ClienteApp.Helpers
             }
         }
 
-        public static async Task ProcessApps(ApiHelper.Data data)
+        public static async Task ProcessApps(Models.Data data)
         {
-            if (data?.apps == null || data.apps.Length == 0)
+            if (data?.grupo?.apps == null || data.grupo.apps.Length == 0)
             {
                 Console.WriteLine("No hay aplicaciones para procesar.");
                 return;
             }
 
-            ApiHelper.Data? existingData = await PersistenceHelper.Load<ApiHelper.Data>();
+            Models.Data? existingData = await PersistenceHelper.Load<Models.Data>();
 
-            // Unistall Apps
-            foreach (ApiHelper.App app in existingData?.apps ?? [])
+            //Unistall Apps
+            foreach (Models.App app in existingData?.grupo?.apps ?? [])
             {
                 Console.WriteLine($"Procesando aplicación para desinstalación: {app.name} (Versión: {app.version})");
-                bool isDifferentGroup = existingData != null && existingData.group != data.group;
-                bool isAppNotInNewData = data.apps.All(newApp =>
+                bool isDifferentGroup = existingData != null && existingData.grupo != null && existingData.grupo.name != data.grupo.name;
+                bool isAppNotInNewData = data.grupo.apps.All(newApp =>
                     newApp.name != app.name ||
                     (newApp.name == app.name && newApp.version != app.version));
-                
+
                 if (isDifferentGroup || isAppNotInNewData)
                 {
-                    DesinstalarAplicacion(app.name);
+                    DesinstalarAplicacion(app);
                 }
             }
 
             // Install Apps
-            foreach (ApiHelper.App app in data.apps)
+            foreach (Models.App app in data.grupo.apps)
             {
                 Console.WriteLine($"Procesando aplicación para instalación: {app.name} (Versión: {app.version})");
                 bool install = true;
-                bool isAppAlreadyInstalled = existingData != null && existingData.group == data.group &&
-                                             existingData.apps != null && existingData.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version) == true;
+                bool isAppAlreadyInstalled = existingData != null && existingData.grupo != null && existingData.grupo.name == data.grupo.name &&
+                                             existingData.grupo.apps != null && existingData.grupo.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version) == true;
                 if (isAppAlreadyInstalled)
                 {
                     install = false;
@@ -78,31 +78,34 @@ namespace ClienteApp.Helpers
 
                 if (install)
                 {
-                    InstalarAplicacion(app.name);
+                    InstalarAplicacion(app);
                 }
             }
         }
 
-        private static void InstalarAplicacion(string? nombreApp)
+        private static void InstalarAplicacion(Models.App app)
         {
-            if (string.IsNullOrEmpty(nombreApp))
+            if (string.IsNullOrEmpty(app.name) || string.IsNullOrEmpty(app.version) || string.IsNullOrEmpty(app.path))
             {
                 return;
             }
 
-            string rutaCompletaMsi = Path.Combine(@"\\server-nube\sistemas\Aplicaciones MSI", $"{nombreApp}");
+            string tempFilePath = Path.Combine(Path.GetTempPath(), Path.GetFileName(app.path));
+
             try
             {
+                File.Copy(app.path, tempFilePath, true);
+
                 using Process process = new();
-                process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
-                process.StartInfo.Arguments = $"/i \"{rutaCompletaMsi}\" /quiet /norestart"; ;
+                process.StartInfo.FileName = "msiexec";
+                process.StartInfo.Arguments = $"/i \"{tempFilePath}\" /quiet /norestart";
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.UseShellExecute = false; // Para redirigir la salida
                 process.StartInfo.CreateNoWindow = true;   // No mostrar ventanas
                 process.StartInfo.Verb = "runas";         // Ejecutar como administrador
 
-                Console.WriteLine($"Instalando la aplicación {nombreApp} desde {rutaCompletaMsi}...");
+                Console.WriteLine($"Instalando la aplicación {app.name}...");
                 process.Start();
 
                 string output = process.StandardOutput.ReadToEnd();
@@ -112,46 +115,56 @@ namespace ClienteApp.Helpers
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    Console.WriteLine($"Error al instalar la aplicación {nombreApp}: {error}");
+                    Console.WriteLine($"Error al instalar la aplicación {app.name}: {error}");
                 }
                 else
                 {
-                    Console.WriteLine($"Aplicación {nombreApp} instalada correctamente.");
+                    Console.WriteLine($"Aplicación {app.name} instalada correctamente.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al instalar la aplicación {nombreApp}: {ex.Message}");
+                Console.WriteLine($"Excepción al instalar la aplicación {app.name}: {ex.Message}");
+            }
+            finally
+            {
+                // Intentar eliminar el archivo temporal después de la instalación
+                try
+                {
+                    if (File.Exists(tempFilePath))
+                    {
+                        File.Delete(tempFilePath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error al eliminar el archivo temporal: {ex.Message}");
+                }
             }
         }
 
-        private static void DesinstalarAplicacion(string? nombreApp)
+        private static void DesinstalarAplicacion(Models.App app)
         {
-            if (string.IsNullOrEmpty(nombreApp))
+            if (string.IsNullOrEmpty(app.name) || string.IsNullOrEmpty(app.version) || string.IsNullOrEmpty(app.path))
             {
                 return;
             }
-
-            // Buscar el ProductCode a partir del nombre de la aplicación
-            string productCode = ObtenerProductCodePorNombre(nombreApp);
-            if (string.IsNullOrEmpty(productCode))
-            {
-                Console.WriteLine($"No se encontró el ProductCode para {nombreApp}.");
-                return;
-            }
-
+            string tempFilePath = Path.Combine(Path.GetTempPath(), Path.GetFileName(app.path));
             try
             {
+                // Copiar el archivo desde la carpeta compartida a la ubicación temporal
+                File.Copy(app.path, tempFilePath, true);
+
                 using Process process = new();
-                process.StartInfo.FileName = "msiexec"; // Usar msiexec directamente
-                process.StartInfo.Arguments = $"/x {productCode} /quiet /norestart"; // /x para desinstalar usando el ProductCode
+                process.StartInfo.FileName = "msiexec";
+                process.StartInfo.Arguments = $"/x \"{tempFilePath}\" /quiet /norestart";
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.UseShellExecute = false; // Para redirigir la salida
                 process.StartInfo.CreateNoWindow = true;   // No mostrar ventanas
                 process.StartInfo.Verb = "runas";         // Ejecutar como administrador
 
-                Console.WriteLine($"Desinstalando la aplicación {nombreApp}...");
+                Console.WriteLine($"Desinstalando la aplicación {app.name}...");
                 process.Start();
 
                 string output = process.StandardOutput.ReadToEnd();
@@ -161,38 +174,32 @@ namespace ClienteApp.Helpers
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    Console.WriteLine($"Error al desinstalar la aplicación {nombreApp}: {error}");
+                    Console.WriteLine($"Error al desinstalar la aplicación {app.name}: {error}");
                 }
                 else
                 {
-                    Console.WriteLine($"Aplicación {nombreApp} desinstalada correctamente.");
+                    Console.WriteLine($"Aplicación {app.name} desinstalada correctamente.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Excepción al desinstalar la aplicación {nombreApp}: {ex.Message}");
+                Console.WriteLine($"Excepción al desinstalar la aplicación {app.name}: {ex.Message}");
             }
-        }
-
-        // Función que obtiene el ProductCode usando el nombre de la aplicación
-        private static string? ObtenerProductCodePorNombre(string nombreApp)
-        {
-            // Aquí puedes buscar el ProductCode en el registro o usar wmic
-            // Ejemplo con wmic:
-            var process = new Process();
-            process.StartInfo.FileName = "wmic";
-            process.StartInfo.Arguments = $"product where \"name = '{nombreApp}'\" get IdentifyingNumber";
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.CreateNoWindow = true;
-
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-
-            // Aquí deberías extraer el ProductCode del output
-            var productCode = output.Split('\n').Skip(1).FirstOrDefault()?.Trim();
-            return productCode;
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempFilePath))
+                    {
+                        File.Delete(tempFilePath);
+                        Console.WriteLine("Archivo temporal eliminado correctamente.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error al eliminar el archivo temporal: {ex.Message}");
+                }
+            }
         }
     }
 }
