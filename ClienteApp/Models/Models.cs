@@ -32,5 +32,19 @@ namespace ClienteApp.Models
         public string? version { get; set; }
         public string? path { get; set; }
     }
-   
+
+    public enum WorkerStatusApp
+    {
+        OK,
+        FAIL,
+        UNKNOWN,
+        PENDING
+    }
+
+    public enum ErrorType
+    {
+        INSTALACION,
+        DESINSTALACION
+    }
+
 }

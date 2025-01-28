@@ -48,12 +48,15 @@ namespace ClienteApp.Helpers
                 return;
             }
 
+            // Unistall Apps
+            // Update Worker Status
             Models.Data? existingData = await PersistenceHelper.Load<Models.Data>();
-
-            //Unistall Apps
+            await ApiHelper.UpdateWorkerStatus(data.worker?.name, Models.WorkerStatusApp.PENDING);
+            bool uninstallOk = true;
             foreach (Models.App app in existingData?.grupo?.apps ?? [])
             {
                 await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.ProcessApps: Procesando aplicación para desinstalación: {app.name} (Versión: {app.version})", data.worker?.name);
+                
                 bool isDifferentGroup = existingData != null && existingData.grupo != null && existingData.grupo.name != data.grupo.name;
                 bool isAppNotInNewData = data.grupo.apps.All(newApp =>
                     newApp.name != app.name ||
@@ -61,15 +64,30 @@ namespace ClienteApp.Helpers
 
                 if (isDifferentGroup || isAppNotInNewData)
                 {
-                    DesInstalarAplicacion(app);
+                    bool uninstallOkActual = await DesInstalarAplicacion(app, data.worker?.name);
+                    uninstallOk = uninstallOk && uninstallOkActual;
+
                 }
             }
+            if (!uninstallOk)
+            {
+                await ApiHelper.UpdateWorkerStatus(data.worker?.name, Models.WorkerStatusApp.FAIL);
+            }
+            else
+            {
+                await ApiHelper.UpdateWorkerStatus(data.worker?.name, Models.WorkerStatusApp.OK);
+            }
+            /////////////
 
+            
             // Install Apps
+            // Update Worker Status
+            await ApiHelper.UpdateWorkerStatus(data.worker?.name, Models.WorkerStatusApp.PENDING);
+            bool installOk = true;
             foreach (Models.App app in data.grupo.apps)
             {
-                //Utils.ConsoleHelper.WriteColoredMessage($"Procesando aplicación para instalación: {app.name} (Versión: {app.version})", ConsoleColor.Green);
                 await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.ProcessApps: Procesando aplicación para instalación: {app.name} (Versión: {app.version})", data.worker?.name);
+                
                 bool install = true;
                 bool isAppAlreadyInstalled = existingData != null && existingData.grupo != null && existingData.grupo.name == data.grupo.name &&
                                              existingData.grupo.apps != null && existingData.grupo.apps.Any(existingApp => existingApp.name == app.name && existingApp.version == app.version) == true;
@@ -81,16 +99,32 @@ namespace ClienteApp.Helpers
 
                 if (install)
                 {
-                    await InstalarAplicacion(app);
+                    bool installOkActual = await InstalarAplicacion(app, data.worker?.name);
+                    installOk = installOk && installOkActual;
                 }
             }
+            if (!installOk)
+            {
+                await ApiHelper.UpdateWorkerStatus(data.worker?.name, Models.WorkerStatusApp.FAIL);
+            }
+            else
+            {
+                await ApiHelper.UpdateWorkerStatus(data.worker?.name, Models.WorkerStatusApp.OK);
+            }
+            /////////////////////
         }
 
-        private static async Task InstalarAplicacion(Models.App app)
+        private static async Task<bool> InstalarAplicacion(Models.App app, string? workerName)
         {
+            if(workerName == null)
+            {
+                return false;
+            }
             if (string.IsNullOrEmpty(app.name) || string.IsNullOrEmpty(app.version) || string.IsNullOrEmpty(app.path))
             {
-                return;
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion: Uno o más parámetros (name, version, path) de la app son nulos", app.name);
+                await ApiHelper.ReportAppError(workerName, "Uno o más parámetros (name, version, path) de la app son nulos", Models.ErrorType.INSTALACION, app.name);
+                return false;
             }
 
             string tempFolder = Path.Combine(Path.GetTempPath(), "ClientApp");
@@ -132,26 +166,35 @@ namespace ClienteApp.Helpers
                 if (!string.IsNullOrWhiteSpace(error))
                 {
                     await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion (Error): process.StandardError.ReadToEnd - {error}", app.name);
-                    return;
+                    await ApiHelper.ReportAppError(workerName, $"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion (Error): process.StandardError.ReadToEnd - {error}", Models.ErrorType.INSTALACION, app.name);
+                    return false;
                 }
                 else
                 {
                     await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion: Aplicación {app.name} instalada correctamente.", app.name);
-                    return;
+                    return true;
                 }
             }
             catch (Exception ex)
             {
                 await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion (Error): Catch - {ex.Message}", app.name);
-                return;
+                await ApiHelper.ReportAppError(workerName, $"ClienteApp.Helpers.PowerShellHelper.InstalarAplicacion (Error): Catch - {ex.Message}", Models.ErrorType.INSTALACION, app.name);
+                return false;
             }
         }
 
-        private static async Task DesInstalarAplicacion(Models.App app)
+        private static async Task<bool> DesInstalarAplicacion(Models.App app, string? workerName)
         {
+            if (workerName == null)
+            {
+                return false;
+            }
+
             if (string.IsNullOrEmpty(app.name) || string.IsNullOrEmpty(app.version) || string.IsNullOrEmpty(app.path))
             {
-                return;
+                await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion: Uno o más parámetros (name, version, path) de la app son nulos", app.name);
+                await ApiHelper.ReportAppError(workerName, "Uno o más parámetros (name, version, path) de la app son nulos", Models.ErrorType.DESINSTALACION, app.name);
+                return false;
             }
 
             string tempFolder = Path.Combine(Path.GetTempPath(), "ClientApp");
@@ -194,18 +237,20 @@ namespace ClienteApp.Helpers
                 if (!string.IsNullOrWhiteSpace(error))
                 {
                     await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion (Error): process.StandardError.ReadToEnd - {error}", app.name);
-                    return;
+                    await ApiHelper.ReportAppError(workerName, $"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion (Error): process.StandardError.ReadToEnd - {error}", Models.ErrorType.DESINSTALACION, app.name);
+                    return false;
                 }
                 else
                 {
                     await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion: Aplicación {app.name} desinstalada correctamente.", app.name);
-                    return;
+                    return true;
                 }
             }
             catch (Exception ex)
             {
                 await PersistenceHelper.WriteLog($"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion (Error): Catch - {ex.Message}", app.name);
-                return;
+                await ApiHelper.ReportAppError(workerName, $"ClienteApp.Helpers.PowerShellHelper.DesInstalarAplicacion (Error): Catch - {ex.Message}", Models.ErrorType.DESINSTALACION, app.name);
+                return false;
             }
         }
     }
