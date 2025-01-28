@@ -7,7 +7,7 @@ namespace ClienteApp.Helpers
 {
     public static class ApiHelper
     {
-        private const string backendUrl = $"http://192.168.20.199:3004";
+        private const string backendUrl = $"http://localhost:3004";
         public static async Task Liveness(string worker)
         {
             using var client = new HttpClient();

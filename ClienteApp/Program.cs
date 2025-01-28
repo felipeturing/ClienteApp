@@ -13,9 +13,8 @@ namespace ClienteApp
             ArgumentNullException.ThrowIfNull(args);
             Console.WriteLine("Iniciando...");
 
-            timerLiveness = new Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromSeconds(120));
-            timerRefreshApps = new Timer(async _ => await Apps(), null, TimeSpan.Zero, TimeSpan.FromSeconds(8));
-
+            timerLiveness = new Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+            timerRefreshApps = new Timer(async _ => await Apps(), null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
 
             Console.ReadLine();
         }
@@ -32,7 +31,7 @@ namespace ClienteApp
                     {
                         Console.WriteLine($"Consultando aplicaciones para el host: {data.worker?.name}");
                         await PowerShellHelper.ProcessApps(data);
-                        //await PersistenceHelper.Save(data);
+                        await PersistenceHelper.Save(data);
                     }
                 }
                 else
