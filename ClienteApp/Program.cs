@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 using System.Drawing;
 using System.Runtime.Versioning;
 using System.Security.Cryptography.Xml;
@@ -17,39 +18,67 @@ namespace ClienteApp
         public static System.Threading.Timer? timerRefreshApps;
         private static NotifyIcon? notifyIcon;
 
-        // Se asegura que el código funcione correctamente como una aplicación Windows Forms
+        // Se asegura que el código funcione correctamente como una aplicación Windows Forms y que solo se debe ejecutar en Windows 7 o superior**
         [STAThread]
         [SupportedOSPlatform("windows6.1")]
         static void Main(string[] args)
         {
-            ArgumentNullException.ThrowIfNull(args);
-
-            //AddToStartup();
-
-            System.Windows.Forms.Application.EnableVisualStyles();
-            System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
-
-            notifyIcon = new NotifyIcon
+            try
             {
-                Icon = new Icon("logo.ico"), // Asegúrate de tener un archivo logo.ico en tu proyecto
-                Visible = true,
-                Text = "AppClient - Controlado por Sistemas"
-            };
+                System.Threading.Thread.Sleep(5000);
 
-            var contextMenuStrip = new ContextMenuStrip();
-            var openMenuItem = new ToolStripMenuItem("Abrir", null, (s, e) => MessageBox.Show("Aplicación en ejecución..\n\nv1.0.0-beta\nDesarrollado por Sistemas 2025"));
-            var exitMenuItem = new ToolStripMenuItem("Salir", null, (s, e) => System.Windows.Forms.Application.Exit());
+                //TaskSchedulerHelper.RegisterTask();
+                AddToStartup();
 
-            contextMenuStrip.Items.AddRange(new ToolStripMenuItem[] { openMenuItem, exitMenuItem });
+                System.Windows.Forms.Application.EnableVisualStyles();
+                System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
 
-            notifyIcon.ContextMenuStrip = contextMenuStrip;
+                notifyIcon = new NotifyIcon
+                {
+                    Visible = true,
+                    Text = "AppClient - Controlado por Sistemas"
+                };
 
-            Utils.ConsoleHelper.WriteColoredMessage("ClienteApp.Program.Main: Iniciando...", ConsoleColor.Green);
+                string iconPath = Path.Combine(AppContext.BaseDirectory, "logo.ico");
+                if (File.Exists(iconPath))
+                {
+                    notifyIcon.Icon = new Icon(iconPath);
+                }
+                else
+                {
+                   throw new Exception($"No se encontró el icono en: {iconPath}");
+                }
 
-            timerLiveness = new System.Threading.Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
-            timerRefreshApps = new System.Threading.Timer(async _ => await Apps(), null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
+                var contextMenuStrip = new ContextMenuStrip();
+                var openMenuItem = new ToolStripMenuItem("Abrir", null, (s, e) =>
+                {
+                    var title = "Información de la Aplicación";
+                    var message = "⚙ Aplicación en ejecución ⚙\n\n" +
+                                  "📌 Versión: v1.0.0-beta\n" +
+                                  "👨‍💻 Desarrollado por Sistemas 2025\n\n" +
+                                  "✅ Estado: Activo y monitoreando.";
+                    MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                });
 
-            System.Windows.Forms.Application.Run();
+                var exitMenuItem = new ToolStripMenuItem("Salir", null, (s, e) => System.Windows.Forms.Application.Exit());
+
+                contextMenuStrip.Items.Add(openMenuItem);
+                contextMenuStrip.Items.Add(exitMenuItem);
+
+                notifyIcon.ContextMenuStrip = contextMenuStrip;
+
+                Utils.ConsoleHelper.WriteColoredMessage("ClienteApp.Program.Main: Iniciando...", ConsoleColor.Green);
+
+                timerLiveness = new System.Threading.Timer(async _ => await Liveness(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+                timerRefreshApps = new System.Threading.Timer(async _ => await Apps(), null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
+
+                System.Windows.Forms.Application.Run();
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al iniciar la aplicación: \n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
 
@@ -61,6 +90,9 @@ namespace ClienteApp
                 Models.Data? data = await ApiHelper.GetApps(worker);
                 if (data != null)
                 {
+                    await PersistenceHelper.WriteLog($"ClienteApp.Program.Apps (Error): Esperando 1min.");
+                    System.Threading.Thread.Sleep(60000);
+
                     await PowerShellHelper.ProcessApps(data);
                     await PersistenceHelper.Save(data);
                 }
@@ -84,36 +116,36 @@ namespace ClienteApp
             }
         }
 
-        //private static void AddToStartup()
-        //{
-        //    string appName = "AppClient";
-        //    string appPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        private static void AddToStartup()
+        {
+            // Verificar si la aplicación se está ejecutando como administrador
+            if (!IsRunningAsAdministrator())
+            {
+                MessageBox.Show("La aplicación debe ejecutarse como administrador para agregarse al inicio del sistema.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                throw new Exception($"La aplicación debe ejecutarse como administrador para agregarse al inicio del sistema.");
+            }
 
-        //    try
-        //    {
-        //        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true))
-        //        {
-        //            if (key == null)
-        //            {
-        //                throw new Exception("No se pudo abrir la clave de registro.");
-        //            }
+            string exePath = Path.Combine(AppContext.BaseDirectory, "ClienteApp.exe");
 
-        //            // Verifica si ya está registrado
-        //            object? existingValue = key.GetValue(appName);
-        //            if (existingValue == null || !existingValue.ToString().Equals($"\"{appPath}\"", StringComparison.OrdinalIgnoreCase))
-        //            {
-        //                key.SetValue(appName, $"\"{appPath}\"");
-        //                Utils.ConsoleHelper.WriteColoredMessage($"Aplicación registrada para inicio automático: {appPath}", ConsoleColor.Yellow);
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        MessageBox.Show($"Error al registrar la aplicación para el inicio automático: {ex.Message}",
-        //                        "Error",
-        //                        MessageBoxButtons.OK,
-        //                        MessageBoxIcon.Error);
-        //    }
-        //}
+            if (!File.Exists(exePath))
+                throw new Exception($"El ClienteApp.exe no existe al inicio");
+
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+                key?.SetValue("ClienteApp Beta", $"\"{exePath}\"");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al agregar la aplicación al inicio al registro: {ex.Message}");
+            }
+        }
+
+        private static bool IsRunningAsAdministrator()
+        {
+            var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identity);
+            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
     }
 }
